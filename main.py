@@ -21,7 +21,7 @@ def process_file():
     # Check if a file was uploaded
     type = request.form.get('type')
     result = process_shapefile('sample/roads.shp',type)
-    return result
+    return render_template('output.html', result=result)
 
 def process_shapefile(filename,type):
     colors = ['red', 'blue', 'green', 'yellow','black','brown']  # Predefine colors for road
