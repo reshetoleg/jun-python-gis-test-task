@@ -6,7 +6,7 @@ import os
 import base64
 import matplotlib.pyplot as plt
 import fiona
-from colorama import init, Fore
+import random
 
 logger = getLogger(__name__)
 app = Flask(__name__)
@@ -40,14 +40,11 @@ def process_file():
     return result
 
 def process_shapefile(filename):
-    init()  # Initialize colorama
-    colors = {}  # Dictionary to store unique colors for streets
-
+    colors = ['red', 'blue', 'green', 'yellow','black','brown']  # Predefine colors for road
     with fiona.open(filename) as shp:
         fig, ax = plt.subplots()
-
         for street in shp:
-            color = 'lightyellow'
+            color = colors[random.randint(0, 4)]
             # Plot the street using the unique color
             coords = street['geometry']['coordinates']
             print(coords)
