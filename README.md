@@ -40,3 +40,13 @@ Possible generated output of the solution. Lines are randomly colourized. But so
 ![Sample output1](https://raw.githubusercontent.com/zakhar-bozhok-jito/jun-python-gis-test-task/master/out-examples/processed-solid.png)
 Possible generated output, but lines have also different line styles.
 ![Sample output2](https://raw.githubusercontent.com/zakhar-bozhok-jito/jun-python-gis-test-task/master/out-examples/processed.png)
+
+## Explanation
+Create simple server with Flask
+Render templates/index.html as root of Flask route
+Choose the output the in templates/index.html form and click submit to post output type
+At Flask backend, open a roads.shp in sample folder and read foreach LINE using fiona
+Randomly select the line color and line style from predefined array
+zip points in LINE as x,y and plot it using matplotlib.pyplot with selected line color and style
+encode generated image as base64 and return it to template/result.html
+
