@@ -3,11 +3,32 @@
 <head>
     <title>File Upload</title>
 </head>
+<style>
+.borderdiv{
+    text-align: center;
+    width: 300px;
+    border: 1px solid;
+    padding: 10px 20px;
+    margin-left: 36px;
+}
+.lh40{
+    line-height: 40px;
+}
+</style>
 <body>
     <h1>Python developer test task (GIS)</h1>
-    <form action="/process" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Upload">
+    <form action="/process" method="post" class="borderdiv">
+        <p>Choose the generate road map type</p>
+        <div class="lh40">
+            <label for="option1">
+                <input type="radio" id="option1" name="type" value="0x11" checked> colourized
+              </label>
+              <label for="option2">
+                <input type="radio" id="option2" name="type" value="0x12"> styled
+            </label><br>
+        </div>
+       
+        <input type="submit" value="generate"/>
     </form>
 </body>
 </html>
