@@ -10,46 +10,34 @@ import random
 
 logger = getLogger(__name__)
 app = Flask(__name__)
+OUTPUT_TYPE_COLOURIZED = 10011
+OUTPUT_TYPE_STYLED = 10012
 
 @app.route('/', methods=['GET'])
 def index():
     return render_template('./index.html')
-
 @app.route('/process', methods=['POST'])
 def process_file():
     # Check if a file was uploaded
-    '''
-    if 'file' not in request.files:
-        return redirect(url_for('index'))
-
-    file = request.files['file']
-    if file.filename == '':
-        return redirect(url_for('index'))
-
-    # Save the uploaded file
-    filename = file.filename
-    file.save(filename)
-
-    # Process the uploaded file
-    result = process_shapefile(filename)
-
-    # Remove the temporary file
-    os.remove(filename)
-    '''
-    result = process_shapefile('sample/roads.shp')
+    type = request.form.get('type')
+    result = process_shapefile('sample/roads.shp',type)
     return result
 
-def process_shapefile(filename):
+def process_shapefile(filename,type):
     colors = ['red', 'blue', 'green', 'yellow','black','brown']  # Predefine colors for road
+    styles = ['-','--','-.',':']
     with fiona.open(filename) as shp:
         fig, ax = plt.subplots()
         for street in shp:
-            color = colors[random.randint(0, 4)]
+            color = colors[random.randint(0, 5)]
+            style = styles[random.randint(0, 3)]
             # Plot the street using the unique color
             coords = street['geometry']['coordinates']
-            print(coords)
             x, y = zip(*coords)
-            ax.plot(x, y, color=color)
+            if int(type) == OUTPUT_TYPE_COLOURIZED:
+                ax.plot(x, y, color=color)
+            else:
+                ax.plot(x, y, linestyle=style,color=color)
         # Save the figure as a PNG file
         output_file = 'colored_streets.png'
         plt.savefig(output_file)
