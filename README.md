@@ -49,4 +49,5 @@ At Flask backend, open a roads.shp in sample folder and read foreach LINE using 
 Randomly select the line color and line style from predefined array
 zip points in LINE as x,y and plot it using matplotlib.pyplot with selected line color and style
 encode generated image as base64 and return it to template/result.html
+Run project: http://localhost:5000/
 
