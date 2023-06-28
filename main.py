@@ -27,7 +27,7 @@ def process_shapefile(filename,type):
     colors = ['red', 'blue', 'green', 'yellow','black','brown']  # Predefine colors for road
     styles = ['-','--','-.',':']
     with fiona.open(filename) as shp:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(12, 8)) # Increase the figure size
         for street in shp:
             color = colors[random.randint(0, 5)]
             style = styles[random.randint(0, 3)]
