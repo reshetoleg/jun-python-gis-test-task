@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import fiona
 import random
 
+
 logger = getLogger(__name__)
 app = Flask(__name__)
 OUTPUT_TYPE_COLOURIZED = 10011
@@ -27,7 +28,13 @@ def process_shapefile(filename,type):
     colors = ['red', 'blue', 'green', 'yellow','black','brown']  # Predefine colors for road
     styles = ['-','--','-.',':']
     with fiona.open(filename) as shp:
-        fig, ax = plt.subplots(figsize=(12, 8)) # Increase the figure size
+        for feature in shp:
+            if feature['geometry']['type'] == 'MultiLineString':
+                multiline_geometry = feature['geometry']
+                # Perform operations with the multiline geometry
+                print(multiline_geometry)
+        fig, ax = plt.subplots(figsize=(12, 12)) # Increase the figure size
+        
         for street in shp:
             color = colors[random.randint(0, 5)]
             style = styles[random.randint(0, 3)]
