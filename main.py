@@ -11,6 +11,7 @@ import random
 from collections import Counter
 from shapely.geometry import MultiLineString, LineString, shape
 import geopandas as gpd
+import networkx as nx
 
 logger = getLogger(__name__)
 app = Flask(__name__)
@@ -34,20 +35,29 @@ def process_shapefile(filename,type):
     icolor = []
     data = gpd.read_file(filename)
     street_lines = []
+    graph = nx.Graph()  # Create an empty graph
+
     for row in data.iterrows():
         geometry = row[1].geometry
         if isinstance(geometry, LineString):
             street_lines.append(geometry)
-    plotted_lines = colorize_streets(street_lines)
-
-    # Generate the image with colored streets
     fig, ax = plt.subplots(figsize=(12, 12)) # Increase the figure size
-    for x, y, color in plotted_lines:
-        
-        if int(type) == OUTPUT_TYPE_COLOURIZED:
-            ax.plot(x, y, color=color)
-        else:
-            ax.plot(x, y, linestyle=style,color=color)
+    while len(street_lines)>0:
+        startnode = street_lines[0]
+        street_lines.remove(startnode)
+        road,street_lines = find_street(street_lines,[startnode])
+        print(len(street_lines))
+        color = colors[random.randint(0, 4)]
+        # Generate the image with colored streets
+        for line in road:
+            if isinstance(line, LineString):
+                # Extracting the coordinates from the LineString
+                coordinates = list(line.coords)
+                x, y = zip(*coordinates)
+                if int(type) == OUTPUT_TYPE_COLOURIZED:
+                    ax.plot(x, y, color=color)
+                else:
+                    ax.plot(x, y, linestyle=style,color=color)
 
     # Save the figure as a PNG file
     output_file = 'colored_streets.png'
@@ -60,82 +70,40 @@ def process_shapefile(filename,type):
     # Return the base64-encoded image
     return encoded_image
 
-def colorize_streets(lines):
-    streets = {}
-    colored_lines = []
-
+def find_street(lines, road):
+    startline = merge_linestrings(road)
+    if not isinstance(startline, LineString): return road,lines
+    heading = getHeading(startline.coords[0], startline.coords[-1])
+    connected = []
     for line in lines:
         merged = False
         # Check if the current line intersects with any existing street
-        for street_id, street in streets.items():
-            if street.intersects(line):
-                if is_cross_pattern(street, line):
-                    continue  # Skip merging if it forms a cross pattern
-                streets[street_id] = street.union(line)
-                colored_lines.append((line, street_id))
-                merged = True
-                break
-        
-        # If the line doesn't intersect with any existing street, create a new street
-        if not merged:
-            street_id = len(streets) + 1
-            streets[street_id] = line
-            colored_lines.append((line, street_id))
-
-    # Assign random colors to each street
-    colors = ['#%06x' % random.randint(0, 0xFFFFFF) for _ in range(len(streets))]
-
-    # Convert lines to (x, y) coordinates for plotting
-    plotted_lines = []
-    for line, street_id in colored_lines:
-        x, y = line.xy
-        plotted_lines.append((x, y, colors[street_id - 1]))
-
-    return plotted_lines
-
-def is_cross_pattern(street, line):
-
-    # Extract the coordinates of the street and line
-    if isinstance(street, LineString):
-        street_coords = list(street.coords)
-    elif isinstance(street, MultiLineString):
-        street_coords = [list(subline.coords) for subline in street.geoms]
+        if startline.coords[0] in line.coords or startline.coords[-1] in line.coords:
+            connected.append(line)
+    if len(connected)==0: 
+        return road,lines    
     else:
-        raise ValueError("Invalid geometry type for street")
-    
-    line_coords = list(line.coords)
+        #find straight forward the line
+        min = 360
+        choosed = None
+        for line in connected:
+            cheading = getHeading(line.coords[0], line.coords[-1])
+            if min > abs(heading - cheading):
+                min = abs(heading-cheading)
+                choosed = line
+               
+        road.append(choosed)
+        lines.remove(choosed)
+        find_street(lines, road)
+    return road,lines
 
-    # Check if any of the street coordinates are within the bounds of the line
-    try:
-        for coords in street_coords:
-            if not isinstance(coords[0],float):
-                for coord in coords:
-                    x,y = coord
-                    if min(line_coords[0][0], line_coords[1][0]) <= x <= max(line_coords[0][0], line_coords[1][0]):
-                        # Check if the y-coordinate is within the range of the line
-                        if min(line_coords[0][1], line_coords[1][1]) <= y <= max(line_coords[0][1], line_coords[1][1]):
-                            print(x,y)
-                            return True  # Intersection forms a cross pattern
-            x, y = coords
-            
-            if not isinstance(x, float):
-                for coord in coords:
-                    x,y = coord
-                    if min(line_coords[0][0], line_coords[1][0]) <= x <= max(line_coords[0][0], line_coords[1][0]):
-                        # Check if the y-coordinate is within the range of the line
-                        if min(line_coords[0][1], line_coords[1][1]) <= y <= max(line_coords[0][1], line_coords[1][1]):
-                            print(x,y)
-                            return True  # Intersection forms a cross pattern
-           
-            # Check if the x-coordinate is within the range of the line
-            if min(line_coords[0][0], line_coords[1][0]) <= x <= max(line_coords[0][0], line_coords[1][0]):
-                # Check if the y-coordinate is within the range of the line
-                if min(line_coords[0][1], line_coords[1][1]) <= y <= max(line_coords[0][1], line_coords[1][1]):
-                    print(x,y)
-                    return True  # Intersection forms a cross pattern
-    except:
-        return False
-    return False  # No cross pattern detected
+def merge_linestrings(linestrings):
+    merged_coords = []
+    for line in linestrings:
+        merged_coords.extend(list(line.coords))
+    
+    merged_linestring = LineString(merged_coords)
+    return merged_linestring
 
 def is_connected(coords1, coords2):
     # Implement your logic to check if two lines are connected
@@ -143,38 +111,6 @@ def is_connected(coords1, coords2):
     # if they share at least one coordinate point
     return any(coord in coords2 for coord in coords1)
     
-def getRoadIndex(roads,street):
-    #emtpy array
-    if len(roads) == 0:
-        return [],0
-    c_coords = street['geometry']['coordinates']
-    c_start = c_coords[0]
-    c_end = c_coords[-1]
-    c_head = getHeading(c_start,c_end)
-    i = 0
-    connected = []
-    for road in roads:
-        start = road[0]
-        end = road[-1]
-        head = getHeading(start,end)
-        if start in [c_start,c_end] or end in [c_start, c_end]:
-            connected.append([i,abs(c_head-head)])
-        i = i + 1
-    if len(connected) == 0:
-        return roads,0
-    else:
-        min_heading = 0
-        index = 0
-        for i,heading in connected:
-            if heading>min_heading:
-                min_heading = heading
-                index = i
-        counter = Counter([c_start,c_end,roads[index][0], roads[index][1]])
-        merged  = [x for x in [c_start,c_end,roads[index][0], roads[index][1]] if counter[x] == 1]
-        if len(merged)>0:
-            roads[index] = merged
-        return roads,index
-
 def getHeading(start_point, end_point):
     x1, y1 = start_point
     x2, y2 = end_point
