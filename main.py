@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import fiona
 import random
 from collections import Counter
-from shapely.geometry import LineString, shape
+from shapely.geometry import MultiLineString, LineString, shape
 import geopandas as gpd
 
 logger = getLogger(__name__)
@@ -43,7 +43,7 @@ def process_shapefile(filename,type):
     # Generate the image with colored streets
     fig, ax = plt.subplots(figsize=(12, 12)) # Increase the figure size
     for x, y, color in plotted_lines:
-        style = styles[random.randint(0, 3)]
+        
         if int(type) == OUTPUT_TYPE_COLOURIZED:
             ax.plot(x, y, color=color)
         else:
@@ -69,6 +69,8 @@ def colorize_streets(lines):
         # Check if the current line intersects with any existing street
         for street_id, street in streets.items():
             if street.intersects(line):
+                if is_cross_pattern(street, line):
+                    continue  # Skip merging if it forms a cross pattern
                 streets[street_id] = street.union(line)
                 colored_lines.append((line, street_id))
                 merged = True
@@ -90,6 +92,50 @@ def colorize_streets(lines):
         plotted_lines.append((x, y, colors[street_id - 1]))
 
     return plotted_lines
+
+def is_cross_pattern(street, line):
+
+    # Extract the coordinates of the street and line
+    if isinstance(street, LineString):
+        street_coords = list(street.coords)
+    elif isinstance(street, MultiLineString):
+        street_coords = [list(subline.coords) for subline in street.geoms]
+    else:
+        raise ValueError("Invalid geometry type for street")
+    
+    line_coords = list(line.coords)
+
+    # Check if any of the street coordinates are within the bounds of the line
+    try:
+        for coords in street_coords:
+            if not isinstance(coords[0],float):
+                for coord in coords:
+                    x,y = coord
+                    if min(line_coords[0][0], line_coords[1][0]) <= x <= max(line_coords[0][0], line_coords[1][0]):
+                        # Check if the y-coordinate is within the range of the line
+                        if min(line_coords[0][1], line_coords[1][1]) <= y <= max(line_coords[0][1], line_coords[1][1]):
+                            print(x,y)
+                            return True  # Intersection forms a cross pattern
+            x, y = coords
+            
+            if not isinstance(x, float):
+                for coord in coords:
+                    x,y = coord
+                    if min(line_coords[0][0], line_coords[1][0]) <= x <= max(line_coords[0][0], line_coords[1][0]):
+                        # Check if the y-coordinate is within the range of the line
+                        if min(line_coords[0][1], line_coords[1][1]) <= y <= max(line_coords[0][1], line_coords[1][1]):
+                            print(x,y)
+                            return True  # Intersection forms a cross pattern
+           
+            # Check if the x-coordinate is within the range of the line
+            if min(line_coords[0][0], line_coords[1][0]) <= x <= max(line_coords[0][0], line_coords[1][0]):
+                # Check if the y-coordinate is within the range of the line
+                if min(line_coords[0][1], line_coords[1][1]) <= y <= max(line_coords[0][1], line_coords[1][1]):
+                    print(x,y)
+                    return True  # Intersection forms a cross pattern
+    except:
+        return False
+    return False  # No cross pattern detected
 
 def is_connected(coords1, coords2):
     # Implement your logic to check if two lines are connected
