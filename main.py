@@ -29,7 +29,6 @@ def process_file():
     return render_template('output.html', result=result)
 
 def process_shapefile(filename,type):
-    colors = ['red', 'blue', 'green', 'yellow','black','brown']  # Predefine colors for road
     styles = ['-','--','-.',':']
     roads = []
     icolor = []
@@ -42,12 +41,14 @@ def process_shapefile(filename,type):
         if isinstance(geometry, LineString):
             street_lines.append(geometry)
     fig, ax = plt.subplots(figsize=(12, 12)) # Increase the figure size
+    i = 1
+    colors = ['#%06x' % random.randint(0, 0xFFFFFF) for _ in range(len(street_lines))]
     while len(street_lines)>0:
+        i = i + 1
         startnode = street_lines[0]
         street_lines.remove(startnode)
-        road,street_lines = find_street(street_lines,[startnode])
-        print(len(street_lines))
-        color = colors[random.randint(0, 4)]
+        road,street_lines = find_street(street_lines,[startnode],startnode.coords[0])
+        style = styles[random.randint(0, 3)]
         # Generate the image with colored streets
         for line in road:
             if isinstance(line, LineString):
@@ -55,7 +56,7 @@ def process_shapefile(filename,type):
                 coordinates = list(line.coords)
                 x, y = zip(*coordinates)
                 if int(type) == OUTPUT_TYPE_COLOURIZED:
-                    ax.plot(x, y, color=color)
+                    ax.plot(x, y, color=colors[i])
                 else:
                     ax.plot(x, y, linestyle=style,color=color)
 
@@ -70,15 +71,21 @@ def process_shapefile(filename,type):
     # Return the base64-encoded image
     return encoded_image
 
-def find_street(lines, road):
+def find_street(lines, road, lastpoint):
     startline = merge_linestrings(road)
     if not isinstance(startline, LineString): return road,lines
-    heading = getHeading(startline.coords[0], startline.coords[-1])
+    heading = getHeading(road[-1].coords[0], road[-1].coords[-1])
+    direction1 = get_line_direction(road[-1])
     connected = []
+    #choose last point from new added line
+    if lastpoint != road[-1].coords[-1]:
+        lastpoint = road[-1].coords[-1]
+    else:
+        lastpoint = road[-1].coords[0]
+   
     for line in lines:
-        merged = False
         # Check if the current line intersects with any existing street
-        if startline.coords[0] in line.coords or startline.coords[-1] in line.coords:
+        if  lastpoint == line.coords[0] or lastpoint == line.coords[-1]:
             connected.append(line)
     if len(connected)==0: 
         return road,lines    
@@ -88,13 +95,20 @@ def find_street(lines, road):
         choosed = None
         for line in connected:
             cheading = getHeading(line.coords[0], line.coords[-1])
+            direction2  = get_line_direction(line)
+            angle = calculate_angle(direction1,direction2)
+            #deverse vector direction opposite
+            #if round(abs(heading - cheading),2) != round(angle,2):
+            #    cheading = 360 - cheading
+            #print(abs(heading - cheading), ' ', angle)
             if min > abs(heading - cheading):
-                min = abs(heading-cheading)
+                min = abs(heading - cheading)
                 choosed = line
-               
+       
         road.append(choosed)
         lines.remove(choosed)
-        find_street(lines, road)
+        #if len(lines) > 770:
+        find_street(lines, road, lastpoint)
     return road,lines
 
 def merge_linestrings(linestrings):
@@ -124,6 +138,18 @@ def getHeading(start_point, end_point):
     # Adjust the angle to be between 0 and 360 degrees
     if angle_deg < 0:
         angle_deg += 360
+    return angle_deg
+
+def get_line_direction(line):
+    start_point, end_point = line.coords[0], line.coords[-1]
+    return end_point[0] - start_point[0], end_point[1] - start_point[1]
+
+def calculate_angle(vector1, vector2):
+    x1, y1 = vector1
+    x2, y2 = vector2
+    dot_product = x1 * x2 + y1 * y2
+    magnitude_product = (x1**2 + y1**2) ** 0.5 * (x2**2 + y2**2) ** 0.5
+    return math.degrees(math.acos(dot_product / magnitude_product))
 
     return angle_deg
 if __name__ == '__main__':
