@@ -58,7 +58,7 @@ def process_shapefile(filename,type):
                 if int(type) == OUTPUT_TYPE_COLOURIZED:
                     ax.plot(x, y, color=colors[i])
                 else:
-                    ax.plot(x, y, linestyle=style,color=color)
+                    ax.plot(x, y, linestyle=style,color=colors[i])
 
     # Save the figure as a PNG file
     output_file = 'colored_streets.png'
@@ -97,12 +97,10 @@ def find_street(lines, road, lastpoint):
             cheading = getHeading(line.coords[0], line.coords[-1])
             direction2  = get_line_direction(line)
             angle = calculate_angle(direction1,direction2)
-            #deverse vector direction opposite
-            #if round(abs(heading - cheading),2) != round(angle,2):
-            #    cheading = 360 - cheading
-            #print(abs(heading - cheading), ' ', angle)
-            if min > abs(heading - cheading):
-                min = abs(heading - cheading)
+            temp = abs(heading - cheading)
+            print(temp, '  ', angle)
+            if min > temp:
+                min = temp
                 choosed = line
        
         road.append(choosed)
@@ -151,6 +149,29 @@ def calculate_angle(vector1, vector2):
     magnitude_product = (x1**2 + y1**2) ** 0.5 * (x2**2 + y2**2) ** 0.5
     return math.degrees(math.acos(dot_product / magnitude_product))
 
+def calculate_latlonangle(lat1, lon1, lat2, lon2, lat3, lon3):
+    # Convert latitude and longitude to radians
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    lat3_rad = math.radians(lat3)
+    lon3_rad = math.radians(lon3)
+
+    # Calculate the great-circle distances
+    dist12 = math.acos(math.sin(lat1_rad) * math.sin(lat2_rad) +
+                       math.cos(lat1_rad) * math.cos(lat2_rad) * math.cos(lon2_rad - lon1_rad))
+    dist23 = math.acos(math.sin(lat2_rad) * math.sin(lat3_rad) +
+                       math.cos(lat2_rad) * math.cos(lat3_rad) * math.cos(lon3_rad - lon2_rad))
+
+    # Calculate the angle using the law of cosines
+    angle = math.acos((math.cos(dist12) - math.cos(dist23) * math.cos(dist12)) /
+                      (math.sin(dist23) * math.sin(dist12)))
+
+    # Convert the angle to degrees
+    angle_degrees = math.degrees(angle)
+
+    return angle_degrees
     return angle_deg
 if __name__ == '__main__':
     app.run()
