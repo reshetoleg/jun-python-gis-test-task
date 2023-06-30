@@ -78,10 +78,13 @@ def find_street(lines, road, lastpoint):
     direction1 = get_line_direction(road[-1])
     connected = []
     #choose last point from new added line
+    before = road[-1].coords[0]
     if lastpoint != road[-1].coords[-1]:
         lastpoint = road[-1].coords[-1]
     else:
         lastpoint = road[-1].coords[0]
+        before = road[-1].coords[-1]
+
    
     for line in lines:
         # Check if the current line intersects with any existing street
@@ -97,6 +100,13 @@ def find_street(lines, road, lastpoint):
             cheading = getHeading(line.coords[0], line.coords[-1])
             direction2  = get_line_direction(line)
             angle = calculate_angle(direction1,direction2)
+            if lastpoint == line.coords[-1]:
+                print(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])
+                latlon_angle = calculate_latlonangle(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])
+            else:
+                print(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])    
+                latlon_angle = calculate_latlonangle(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[-1][0], line.coords[-1][1])
+            print(latlon_angle)
             temp = abs(heading - cheading)
             print(temp, '  ', angle)
             if min > temp:
@@ -150,7 +160,7 @@ def calculate_angle(vector1, vector2):
     return math.degrees(math.acos(dot_product / magnitude_product))
 
 def calculate_latlonangle(lat1, lon1, lat2, lon2, lat3, lon3):
-    # Convert latitude and longitude to radians
+     # Convert latitude and longitude to radians
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
     lat2_rad = math.radians(lat2)
@@ -163,16 +173,23 @@ def calculate_latlonangle(lat1, lon1, lat2, lon2, lat3, lon3):
                        math.cos(lat1_rad) * math.cos(lat2_rad) * math.cos(lon2_rad - lon1_rad))
     dist23 = math.acos(math.sin(lat2_rad) * math.sin(lat3_rad) +
                        math.cos(lat2_rad) * math.cos(lat3_rad) * math.cos(lon3_rad - lon2_rad))
+    
+    # Check for invalid distances
+    if math.isnan(dist12) or math.isnan(dist23):
+        return 0
 
     # Calculate the angle using the law of cosines
-    angle = math.acos((math.cos(dist12) - math.cos(dist23) * math.cos(dist12)) /
-                      (math.sin(dist23) * math.sin(dist12)))
+    try:
+        angle = math.acos((math.cos(dist12) - math.cos(dist23) * math.cos(dist12)) /
+                          (math.sin(dist23) * math.sin(dist12)))
+    except ValueError:
+        return 0
 
     # Convert the angle to degrees
     angle_degrees = math.degrees(angle)
 
     return angle_degrees
-    return angle_deg
+
 if __name__ == '__main__':
     app.run()
 
