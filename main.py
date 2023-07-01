@@ -29,6 +29,7 @@ def process_file():
     return render_template('output.html', result=result)
 
 def process_shapefile(filename,type):
+    colors = ['red','blue','green','brown','black',"#851414", "#0c7392", "pink", "#01558f","#e5e614",'#fe14b7']
     styles = ['-','--','-.',':']
     roads = []
     icolor = []
@@ -50,24 +51,25 @@ def process_shapefile(filename,type):
     fig, ax = plt.subplots(figsize=(12, 12)) # Increase the figure size
     i = 1
     color_set = set()  # Set to store unique colors
+    '''
     colors = []
     while len(colors) < len(street_lines):
         color = '#%06x' % random.randint(0, 0xFFFFFF)
+        # Sharpen the color by increasing its saturation
+        color = color[:-2] + 'FF'
         if color not in color_set:
             color_set.add(color)
             colors.append(color)
+    '''
 
-   
-
-    #street_lines.sort(key=lambda line: line.coords[0][0])
+    street_lines.sort(key=lambda line: line.coords[0][0])
     lines.sort(key=lambda line: line.centroid.y,reverse=True)
     
     while len(lines)>0:
         i = i + 1
         startnode = lines[0]
         lines.remove(startnode)
-        print(startnode)
-        road,lines = find_street(lines,[startnode],startnode.coords[0])
+        road,lines = find_street(lines,[startnode],startnode.coords[0],startnode.coords[-1])
         style = styles[random.randint(0, 3)]
         # Generate the image with colored streets
         for line in road:
@@ -76,9 +78,9 @@ def process_shapefile(filename,type):
                 coordinates = list(line.coords)
                 x, y = zip(*coordinates)
                 if int(type) == OUTPUT_TYPE_COLOURIZED:
-                    ax.plot(x, y, color=colors[i])
+                    ax.plot(x, y, color=colors[i%11])
                 else:
-                    ax.plot(x, y, linestyle=style,color=colors[i])
+                    ax.plot(x, y, linestyle=style,color=colors[i%11])
 
     # Save the figure as a PNG file
     output_file = 'colored_streets.png'
@@ -90,6 +92,7 @@ def process_shapefile(filename,type):
 
     # Return the base64-encoded image
     return encoded_image
+
 def devide_into_segment(line):
     segments = []
     if isinstance(line, LineString) and len(line.coords) > 2:
@@ -102,53 +105,57 @@ def devide_into_segment(line):
         segments.append(line)
     return segments
 
-def find_street(lines, road, lastpoint):
-    startline = merge_linestrings(road)
-    if not isinstance(startline, LineString): return road,lines
-    direction1 = get_line_direction(road[-1])
+def find_street(lines, road, startpoint, lastpoint):
     connected = []
-  
-    #choose last point from new added line
     before = road[-1].coords[0]
-    if lastpoint != road[-1].coords[-1]:
-        lastpoint = road[-1].coords[-1]
-    else:
-        lastpoint = road[-1].coords[0]
-        before = road[-1].coords[-1]
-  
+    if len(road)>1:
+        if lastpoint == road[-1].coords[0]:
+            lastpoint = road[-1].coords[-1]
+        elif lastpoint == road[-1].coords[-1]:
+            lastpoint = road[-1].coords[0]
+            before = road[-1].coords[-1]
+        else:
+            if(lastpoint == road[0].coords[0]):
+                before = road[0].coords[-1]
+            else:
+                before = road[0].coords[0]
+            
     heading = getHeading(before[0],before[1],lastpoint[0],lastpoint[1])
-    for line in lines:
-        
+  
+    for line in lines:   
         # Check if the current line intersects with any existing street
         if  lastpoint in line.coords:
             connected.append(line)
 
-    if len(connected)==0: 
-        return road,lines    
+    if len(connected)==0:
+        if(startpoint != None):
+             find_street(lines, road, None, startpoint)
+        else:
+            return road,lines    
     else:
         #find straight forward the line
         min = 360
         choosed = None
         for index, line in enumerate(connected):
-            cheading = getHeading(line.coords[0][0], line.coords[0][1],line.coords[-1][0], line.coords[-1][1])
-       
-            direction2  = get_line_direction(line)
-            angle = calculate_angle(direction1,direction2)
+            cheading = 0
+            if  lastpoint == line.coords[0]:
+                cheading = getHeading(lastpoint[0], lastpoint[1],line.coords[-1][0], line.coords[-1][1])
+            else:
+                cheading = getHeading(lastpoint[0], lastpoint[1],line.coords[0][0], line.coords[0][1])
+            print(heading,cheading)
             temp = abs(heading - cheading)
-            if(len(road)>0 and index == 2):road.append(line)
-            print(heading,cheading, angle)
-            #print("Angle Between Lines:",angle_between_linestrings(road[-1],line))
-            
-            if min > abs(180-temp) :
-                min = abs(180-temp)
+            #if there are more than 2 connected and heading is much different not accept
+            addition = True
+            if len(connected)>1 and temp>80: addition = False
+            if min > temp and addition == True:
+                min = temp
                 choosed = line
-        print('-------------')
-        if choosed == None: return road,lines    
+        print('-------------') 
+        if choosed == None: return road,lines
         road.append(choosed)
         lines.remove(choosed)
-        find_street(lines, road, lastpoint)
+        find_street(lines, road, startpoint, lastpoint)
     return road,lines
-
 
 def divide_into_single_lines(line_streets):
     single_lines = []
@@ -187,17 +194,6 @@ def getHeading(lat1, lon1, lat2, lon2):
         heading_deg += 360
 
     return heading_deg
-
-def get_line_direction(line):
-    start_point, end_point = line.coords[0], line.coords[-1]
-    return end_point[0] - start_point[0], end_point[1] - start_point[1]
-
-def calculate_angle(vector1, vector2):
-    x1, y1 = vector1
-    x2, y2 = vector2
-    dot_product = x1 * x2 + y1 * y2
-    magnitude_product = (x1**2 + y1**2) ** 0.5 * (x2**2 + y2**2) ** 0.5
-    return math.degrees(math.acos(dot_product / magnitude_product))
 
 if __name__ == '__main__':
     
