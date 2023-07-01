@@ -42,7 +42,20 @@ def process_shapefile(filename,type):
             street_lines.append(geometry)
     fig, ax = plt.subplots(figsize=(12, 12)) # Increase the figure size
     i = 1
-    colors = ['#%06x' % random.randint(0, 0xFFFFFF) for _ in range(len(street_lines))]
+    color_set = set()  # Set to store unique colors
+    colors = []
+
+    while len(colors) < len(street_lines):
+        color = '#%06x' % random.randint(0, 0xFFFFFF)
+        if color not in color_set:
+            color_set.add(color)
+            colors.append(color)
+
+   
+
+    #street_lines.sort(key=lambda line: line.coords[0][0])
+    street_lines.sort(key=lambda line: line.centroid.y,reverse=True)
+    
     while len(street_lines)>0:
         i = i + 1
         startnode = street_lines[0]
@@ -74,7 +87,6 @@ def process_shapefile(filename,type):
 def find_street(lines, road, lastpoint):
     startline = merge_linestrings(road)
     if not isinstance(startline, LineString): return road,lines
-    heading = getHeading(road[-1].coords[0], road[-1].coords[-1])
     direction1 = get_line_direction(road[-1])
     connected = []
     #choose last point from new added line
@@ -85,39 +97,61 @@ def find_street(lines, road, lastpoint):
         lastpoint = road[-1].coords[0]
         before = road[-1].coords[-1]
 
+    heading = getHeading(road[-1].coords[0], road[-1].coords[-1])
+
    
     for line in lines:
+        if(len(line.coords)>2):
+            print(line)
         # Check if the current line intersects with any existing street
         if  lastpoint == line.coords[0] or lastpoint == line.coords[-1]:
             connected.append(line)
+
     if len(connected)==0: 
         return road,lines    
     else:
         #find straight forward the line
         min = 360
         choosed = None
-        for line in connected:
+        for index, line in enumerate(connected):
             cheading = getHeading(line.coords[0], line.coords[-1])
+            '''
+            if before[0]<lastpoint[0]:
+                if line.coords[0][0] < line.coords[-1][0]:
+                    cheading = getHeading(line.coords[0], line.coords[-1])
+                else:
+                    cheading = getHeading(line.coords[-1], line.coords[0])
+            else:
+                if line.coords[0][0] > line.coords[-1][0]:
+                    cheading = getHeading(line.coords[0], line.coords[-1])
+                else:
+                    cheading = getHeading(line.coords[-1], line.coords[0])
+            '''
             direction2  = get_line_direction(line)
             angle = calculate_angle(direction1,direction2)
-            if lastpoint == line.coords[-1]:
-                print(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])
-                latlon_angle = calculate_latlonangle(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])
-            else:
-                print(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])    
-                latlon_angle = calculate_latlonangle(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[-1][0], line.coords[-1][1])
-            print(latlon_angle)
+
+           
+            #if lastpoint == line.coords[-1]:
+            #    latlon_angle = calculate_latlonangle(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[0][0], line.coords[0][1])
+            #else:
+            #    latlon_angle = calculate_latlonangle(before[0],before[1],lastpoint[0],lastpoint[1], line.coords[-1][0], line.coords[-1][1])
             temp = abs(heading - cheading)
-            print(temp, '  ', angle)
-            if min > temp:
+            if min > temp :
                 min = temp
                 choosed = line
-       
+            
+        if choosed == None: return road,lines    
         road.append(choosed)
         lines.remove(choosed)
         #if len(lines) > 770:
         find_street(lines, road, lastpoint)
     return road,lines
+
+def divide_into_single_lines(line_streets):
+    single_lines = []
+    coordinates = list(line_streets.coords)
+    single_lines.append(LineString(coordinates))
+    return single_lines
 
 def merge_linestrings(linestrings):
     merged_coords = []
@@ -191,6 +225,7 @@ def calculate_latlonangle(lat1, lon1, lat2, lon2, lat3, lon3):
     return angle_degrees
 
 if __name__ == '__main__':
+    
     app.run()
 
 
